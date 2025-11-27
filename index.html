@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Custom Painting Generator | Maker & Creator</title>
+    
+    <meta name="description" content="The best free Minecraft Custom Painting Maker. Upload your own images, crop to fit, and generate HD painting resource packs for Minecraft Java & Bedrock Edition.">
+    <meta name="author" content="Frostyy4004">
+    <meta name="keywords" content="minecraft custom painting generator, mc painting creator, minecraft custom painting maker, minecraft resource pack generator, minecraft painting creator">
+    <meta name="robots" content="index, follow">
+    
+    <link rel="icon" type="image/png" href="logo.png">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="./" class="nav-brand">
+                <img src="logo.png" alt="Logo">
+                <span>MC Painter</span>
+            </a>
+            
+            <ul class="nav-links">
+                <li><a href="./" class="active">Generator</a></li>
+                <li><a href="about/">About</a></li>
+                <li><a href="privacy/">Privacy</a></li>
+                <li><a href="terms/">Terms</a></li>
+                <li><a href="contact/">Contact</a></li>
+            </ul>
+
+            <div class="hamburger">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="header-section">
+            <h1>Minecraft Painting Generator</h1>
+            <h2 style="font-size: 1.1rem; color: #aaa; font-weight: 400; margin-top: 5px;">Create Custom Resource Packs for Java & Bedrock</h2>
+            <p>Select a painting slot below, crop your image, and export your custom pack instantly.</p>
+        </header>
+        
+        <div class="top-controls">
+            <button id="download-templates-btn" class="btn-sec">Download Original Templates (.zip)</button>
+        </div>
+
+        <div id="gallery-container"></div>
+        
+        <input type="file" id="file-upload" accept="image/*" style="display: none;">
+
+        <div class="controls">
+            <div class="input-group">
+                <label for="pack-name">Resource Pack Name</label>
+                <input type="text" id="pack-name" placeholder="My Custom Paintings" value="My Custom Paintings">
+            </div>
+            <button id="generate-btn" class="btn-main">Export Resource Pack</button>
+        </div>
+
+        <footer class="site-footer">
+            <p>Developed by <strong style="color: var(--primary);">Frostyy4004</strong> &copy; <span id="year"></span></p>
+        </footer>
+    </div>
+
+    <div id="crop-modal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <h3>Adjust Image</h3>
+            <div class="crop-container"><img id="image-to-crop" src=""></div>
+            <div class="modal-buttons">
+                <button id="crop-cancel-btn" class="btn-sec" style="color:var(--danger); border-color:var(--danger);">Cancel</button>
+                <button id="crop-confirm-btn" class="btn-main" style="margin-top:0;">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Select Edition</h3>
+            <div class="modal-buttons">
+                <button onclick="selectEdition('java')" class="btn-opt"><strong>Java Edition</strong><br><small>(.zip)</small></button>
+                <button onclick="selectEdition('bedrock')" class="btn-opt"><strong>Bedrock Edition</strong><br><small>(.mcpack)</small></button>
+            </div>
+            <div id="version-select-container" class="hidden">
+                <select id="version-select"></select>
+                <button id="final-download-btn" class="btn-main">Download Now</button>
+            </div>
+            <button onclick="closeModal()" class="close-btn">&times;</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
