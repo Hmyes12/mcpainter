@@ -1,10 +1,7 @@
 document.addEventListener("DOMContentLoaded", async () => {
     // --- 1. SMART FETCH FOR URL.JSON ---
     try {
-        // Try fetching relative to current location
         let response = await fetch('url.json');
-        
-        // If that fails (because we are in a subfolder), try one level up
         if (!response.ok) {
             response = await fetch('../url.json');
         }
@@ -17,7 +14,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Update Canonical
             let canonical = document.querySelector('link[rel="canonical"]');
             if (canonical) {
-                // If we are deep in a folder, simple append works better with full URL
                 canonical.href = window.location.href.split('?')[0]; 
             }
 
@@ -159,19 +155,27 @@ if (container) {
 
     document.getElementById('crop-cancel-btn').onclick = () => { cropModal.classList.add('hidden'); if (cropper) { cropper.destroy(); cropper = null; } };
 
+    // --- FIX 1: UPDATED GENERATE KZ.PNG ---
     async function generateKzPng() {
         const KZ_SCALE_FACTOR = 16; 
         const canvas = document.createElement('canvas');
         canvas.width = 256 * KZ_SCALE_FACTOR;
         canvas.height = 256 * KZ_SCALE_FACTOR;
         const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+        
         const loadImage = (src) => new Promise((resolve, reject) => { const img = new Image(); img.crossOrigin = "anonymous"; img.onload = () => resolve(img); img.onerror = reject; img.src = src; });
         const legacyPaintings = paintings.filter(p => p.kx !== null);
+        
         for (const p of legacyPaintings) {
             try {
-                let src = userUploads[p.id] ? `data:image/png;base64,${userUploads[p.id]}` : `${ASSET_BASE_URL}${p.id}.png`;
+                const isUserUpload = !!userUploads[p.id];
+                let src = isUserUpload ? `data:image/png;base64,${userUploads[p.id]}` : `${ASSET_BASE_URL}${p.id}.png`;
                 const img = await loadImage(src);
+                
+                // CRITICAL FIX: Disable smoothing for defaults so pixel art stays sharp when scaled up
+                ctx.imageSmoothingEnabled = isUserUpload; 
+                ctx.imageSmoothingQuality = isUserUpload ? 'high' : 'low';
+                
                 ctx.drawImage(img, p.kx * KZ_SCALE_FACTOR, p.ky * KZ_SCALE_FACTOR, p.w * KZ_SCALE_FACTOR, p.h * KZ_SCALE_FACTOR);
             } catch (err) {}
         }
@@ -211,21 +215,36 @@ if (container) {
             } catch (e) {}
 
             const texturesFolder = selectedEdition === 'java' ? zip.folder("assets/minecraft/textures/painting") : zip.folder("textures/painting");
-            paintings.forEach(p => { if (userUploads[p.id]) texturesFolder.file(`${p.id}.png`, userUploads[p.id], {base64: true}); });
-
+            
+            // --- FIX 2: SPLIT BEDROCK & JAVA LOGIC ---
             if (selectedEdition === 'java') {
+                // Java: Just add all individual files, it handles them fine
+                paintings.forEach(p => { if (userUploads[p.id]) texturesFolder.file(`${p.id}.png`, userUploads[p.id], {base64: true}); });
+                
                 const packMeta = { pack: { pack_format: parseInt(version), description: `${packName}\nAuthor: Frostyy4004` } };
                 zip.file("pack.mcmeta", JSON.stringify(packMeta, null, 2));
                 saveAs(await zip.generateAsync({type:"blob"}), `${safeFilename}-java.zip`);
             } else {
+                // Bedrock: Logic must be strict to avoid transparency bugs
                 const u1 = crypto.randomUUID(); const u2 = crypto.randomUUID();
                 const manifest = { format_version: 2, header: { name: packName, description: "Created by Frostyy4004", uuid: u1, version: [1, 0, 0], min_engine_version: [1, 20, 0] }, modules: [{ type: "resources", uuid: u2, version: [1, 0, 0] }], metadata: { authors: ["Frostyy4004"] } };
                 zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+                
+                // 1. Generate Atlas (Handles all Legacy paintings)
                 texturesFolder.file("kz.png", await generateKzPng());
+                
+                // 2. Only add individual files for NEW (1.21+) paintings
+                // Adding individual legacy files (like match.png) causes Bedrock bugs if kz.png exists
+                paintings.forEach(p => { 
+                    if (userUploads[p.id] && p.kx === null) {
+                        texturesFolder.file(`${p.id}.png`, userUploads[p.id], {base64: true}); 
+                    }
+                });
+                
                 saveAs(await zip.generateAsync({type:"blob"}), `${safeFilename}.mcpack`);
             }
             closeModal();
-        } catch (error) { alert("An error occurred."); } finally { btn.innerText = originalText; btn.disabled = false; btn.style.opacity = "1"; }
+        } catch (error) { console.error(error); alert("An error occurred."); } finally { btn.innerText = originalText; btn.disabled = false; btn.style.opacity = "1"; }
     };
 
     document.getElementById('download-templates-btn').onclick = async () => {
