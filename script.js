@@ -59,7 +59,7 @@ const container = document.getElementById('gallery-container');
 if (container) {
     const ASSET_BASE_URL = "https://raw.githubusercontent.com/PixiGeko/Minecraft-default-assets/latest/assets/minecraft/textures/painting/";
     
-    // VISUAL SCALE: 1px Minecraft = 5px Screen (Keeps shape correct)
+    // VISUAL SCALE: 1px Minecraft = 5px Screen
     const VISUAL_SCALE = 5; 
 
     const categories = [
@@ -155,7 +155,6 @@ if (container) {
 
     document.getElementById('crop-cancel-btn').onclick = () => { cropModal.classList.add('hidden'); if (cropper) { cropper.destroy(); cropper = null; } };
 
-    // --- FIX 1: UPDATED GENERATE KZ.PNG ---
     async function generateKzPng() {
         const KZ_SCALE_FACTOR = 16; 
         const canvas = document.createElement('canvas');
@@ -172,7 +171,7 @@ if (container) {
                 let src = isUserUpload ? `data:image/png;base64,${userUploads[p.id]}` : `${ASSET_BASE_URL}${p.id}.png`;
                 const img = await loadImage(src);
                 
-                // CRITICAL FIX: Disable smoothing for defaults so pixel art stays sharp when scaled up
+                // Disable smoothing for defaults so pixel art stays sharp when scaled up
                 ctx.imageSmoothingEnabled = isUserUpload; 
                 ctx.imageSmoothingQuality = isUserUpload ? 'high' : 'low';
                 
@@ -206,35 +205,55 @@ if (container) {
             let packName = document.getElementById('pack-name').value.trim() || "Custom Paintings";
             const safeFilename = packName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
+            // --- ROBUST LOGO LOADER ---
+            let logoBlob = null;
             try {
-                const logoReq = await fetch('logo.png');
-                if (logoReq.ok) {
-                    const logoBlob = await logoReq.blob();
-                    if (selectedEdition === 'java') zip.file("pack.png", logoBlob); else zip.file("pack_icon.png", logoBlob);
-                }
-            } catch (e) {}
+                // 1. Try fetching file normally
+                const response = await fetch('logo.png');
+                if (response.ok) logoBlob = await response.blob();
+            } catch (e) {
+                console.warn("Direct logo fetch failed (possibly local file context), trying fallback...");
+            }
+
+            // 2. Fallback: Grab from DOM (If fetch failed or file protocol is used)
+            if (!logoBlob) {
+                try {
+                    const navImg = document.querySelector('.nav-brand img');
+                    if (navImg) {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 64; canvas.height = 64; // Standardize to 64x64 icon
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(navImg, 0, 0, 64, 64);
+                        logoBlob = await new Promise(resolve => canvas.toBlob(resolve));
+                    }
+                } catch (e) { console.warn("Logo fallback failed", e); }
+            }
+
+            // 3. Add logo to zip
+            if (logoBlob) {
+                if (selectedEdition === 'java') zip.file("pack.png", logoBlob);
+                else zip.file("pack_icon.png", logoBlob);
+            }
+            // ---------------------------
 
             const texturesFolder = selectedEdition === 'java' ? zip.folder("assets/minecraft/textures/painting") : zip.folder("textures/painting");
             
-            // --- FIX 2: SPLIT BEDROCK & JAVA LOGIC ---
             if (selectedEdition === 'java') {
-                // Java: Just add all individual files, it handles them fine
+                // Java: Add individual files
                 paintings.forEach(p => { if (userUploads[p.id]) texturesFolder.file(`${p.id}.png`, userUploads[p.id], {base64: true}); });
                 
                 const packMeta = { pack: { pack_format: parseInt(version), description: `${packName}\nAuthor: Frostyy4004` } };
                 zip.file("pack.mcmeta", JSON.stringify(packMeta, null, 2));
                 saveAs(await zip.generateAsync({type:"blob"}), `${safeFilename}-java.zip`);
             } else {
-                // Bedrock: Logic must be strict to avoid transparency bugs
+                // Bedrock: Handle Atlas + Individual
                 const u1 = crypto.randomUUID(); const u2 = crypto.randomUUID();
                 const manifest = { format_version: 2, header: { name: packName, description: "Created by Frostyy4004", uuid: u1, version: [1, 0, 0], min_engine_version: [1, 20, 0] }, modules: [{ type: "resources", uuid: u2, version: [1, 0, 0] }], metadata: { authors: ["Frostyy4004"] } };
                 zip.file("manifest.json", JSON.stringify(manifest, null, 2));
                 
-                // 1. Generate Atlas (Handles all Legacy paintings)
                 texturesFolder.file("kz.png", await generateKzPng());
                 
-                // 2. Only add individual files for NEW (1.21+) paintings
-                // Adding individual legacy files (like match.png) causes Bedrock bugs if kz.png exists
+                // Only add individual files for non-legacy paintings (no kx/ky)
                 paintings.forEach(p => { 
                     if (userUploads[p.id] && p.kx === null) {
                         texturesFolder.file(`${p.id}.png`, userUploads[p.id], {base64: true}); 
@@ -244,7 +263,7 @@ if (container) {
                 saveAs(await zip.generateAsync({type:"blob"}), `${safeFilename}.mcpack`);
             }
             closeModal();
-        } catch (error) { console.error(error); alert("An error occurred."); } finally { btn.innerText = originalText; btn.disabled = false; btn.style.opacity = "1"; }
+        } catch (error) { console.error(error); alert("An error occurred: " + error.message); } finally { btn.innerText = originalText; btn.disabled = false; btn.style.opacity = "1"; }
     };
 
     document.getElementById('download-templates-btn').onclick = async () => {
